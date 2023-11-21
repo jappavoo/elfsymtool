@@ -3,6 +3,17 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <getopt.h>
+#include <err.h>
+#include <errno.h>
+#include <assert.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <stdlib.h>
+#include <strings.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <fcntl.h>
 
 struct Args {
   char *elfpath;
@@ -64,9 +75,10 @@ processArgs(int argc, char **argv)
 
 #define MAX_PATH 80
 
+enum ELFSTATE { NONE=0, OPEN=1<<0, MAPPED=1<<1, STRSFOUND=1<<2, SYMSFOUND=1<<3, DIRTY=1<<4 };
 typedef struct {
   char path[MAX_PATH];
-  int fd;
+  struct stat finfo;
   uint8_t *addr;
   uint8_t *strtbl;
   union {
@@ -74,11 +86,66 @@ typedef struct {
     Elf32_Sym *sym32;
     Elf64_Sym *sym64;
   } sym;
+  int fd;
+  int openflgs;
+  int mmapflgs;
+  int protflgs;
+  enum ELFSTATE state;
 } ELF;
   
-int openElf(char *path, ELF *elf)
+
+int openElf(ELF *elf, char *path, int openflgs, int persist)
 {
+  struct stat statbuf;
+  int fd;
+  int mmapflgs, protflgs;
+  void *bytes;
+  enum ELFSTATE state = NONE;
+  int mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
+  assert(elf);
+  assert(path);
+
+  fd = open(path, openflgs, mode);
+  if (fd == -1) {
+    warn(__FUNCTION__);
+    return 0;
+  }
+  state |= OPEN;
+  
+  if (fstat(fd, &statbuf) == -1) {
+    warn(__FUNCTION__);
+    return 0;    
+  }
+
+  // If we are presisting the changes then we map shared
+  // otherwise we map private
+  mmapflgs =  (persist) ?  MAP_SHARED : MAP_PRIVATE; // flags
+  if (openflgs & O_RDONLY)  protflgs = PROT_READ;
+  else protflgs = PROT_READ | PROT_WRITE;
+  bytes = mmap(NULL, // addr
+	       statbuf.st_size, // length,
+	       protflgs, // prot
+	       mmapflgs,
+	       fd, // fd,
+	       0);  // offset
+  if (bytes == MAP_FAILED) {
+    warn(__FUNCTION__);
+    return 0;
+  }
+  state |= MAPPED;
+
+  
+  strncpy(elf->path, path, sizeof(elf->path));
+  elf->openflgs = openflgs;
+  elf->fd = fd;
+  memcpy(&(elf->finfo), &statbuf, sizeof(statbuf));
+  elf->mmapflgs = mmapflgs;
+  elf->protflgs = protflgs;
+  elf->addr = bytes;
+  elf->state = state;
+  
   return 1;
+  
 }
 
 int findStrTbl(ELF *elf)
@@ -99,7 +166,13 @@ int main(int argc, char **argv)
     return -1;
   }
   
-  openElf(argv[1], &elf);
+  if (!openElf(&elf, Args.elfpath,
+	       O_RDONLY, //open flags,
+	       0        // persist flg
+	       )) {
+    return -1;
+  }
+  
   findStrTbl(&elf);
   findSymTbl(&elf);
   
