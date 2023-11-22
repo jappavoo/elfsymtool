@@ -1,0 +1,5 @@
+#!/bin/bash
+while read n desc; do
+  echo "  DESC($n, \"$desc\")",
+done
+echo "  DESC(-1,\"\")"
