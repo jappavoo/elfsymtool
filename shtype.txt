@@ -1,0 +1,17 @@
+SHT_NULL  section header as inactive - no actual section
+SHT_PROGBITS section holds informationdefined by the program
+SHT_SYMTAB section holds a symbol table
+SHT_STRTAB section holds a string table
+SHT_RELA   section holds relocation entries with explicit addends
+SHT_HASH   section holds a symbol hash table. A dynamic object participating in dynamic linking must contain one and only one  symbol hash table.
+SHT_DYNAMIC section holds information for dynamic linking
+SHT_NOTE    section holds notes (ElfN_Nhdr)
+SHT_NOBITS  section of this type occupies no space in the file but otherwise resembles SHT_PROGBITS
+SHT_REL     section holds relocation offsets without explicit addends
+SHT_SHLIB   section is reserved but has unspecified semantics
+SHT_DYNSYM  section holds a minimal set of dynamic linking symbols 
+SHT_LOPROC  section reserved for processor-specific semantics - start 
+SHT_HIPROC section reserved for processor-specific semantics - end 
+SHT_LOUSER  section reserved for application programs - start 
+SHT_HIUSER section reserved for application programs - end
+

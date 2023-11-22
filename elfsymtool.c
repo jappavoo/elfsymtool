@@ -81,7 +81,7 @@ processArgs(int argc, char **argv)
 struct Desc {
   int val;
   char name[40];
-  char desc[80];
+  char desc[256];
 };
 
 void 
@@ -89,7 +89,7 @@ printDesc(struct Desc *dtbl, int v, char *name, FILE *fp)
 {
   for (int i=0; dtbl[i].val != -1; i++) {
     if (dtbl[i].val == v) {
-      fprintf(fp, "%s:%d - %s : %s\n", name,
+      fprintf(fp, "%s:%d\t- %s : %s\n", name,
 	      dtbl[i].val, dtbl[i].name, dtbl[i].desc);
       return;
     }
@@ -191,6 +191,26 @@ struct Desc EVERSION[] = {
   DESC(-1,"")
 };
 
+struct Desc SHTYPE[] = {
+  DESC(SHT_NULL, "section header as inactive - no actual section"),
+  DESC(SHT_PROGBITS, "section holds informationdefined by the program"),
+  DESC(SHT_SYMTAB, "section holds a symbol table"),
+  DESC(SHT_STRTAB, "section holds a string table"),
+  DESC(SHT_RELA, "section holds relocation entries with explicit addends"),
+  DESC(SHT_HASH, "section holds a symbol hash table. A dynamic object participating in dynamic linking must contain one and only one symbol hash table."),
+  DESC(SHT_DYNAMIC, "section holds information for dynamic linking"),
+  DESC(SHT_NOTE, "section holds notes (ElfN_Nhdr)"),
+  DESC(SHT_NOBITS, "section of this type occupies no space in the file but otherwise resembles SHT_PROGBITS"),
+  DESC(SHT_REL, "section holds relocation offsets without explicit addends"),
+  DESC(SHT_SHLIB, "section is reserved but has unspecified semantics"),
+  DESC(SHT_DYNSYM, "section holds a minimal set of dynamic linking symbols"),
+  DESC(SHT_LOPROC, "section reserved for processor-specific semantics - start"),
+  DESC(SHT_HIPROC, "section reserved for processor-specific semantics - end"),
+  DESC(SHT_LOUSER, "section reserved for application programs - start"),
+  DESC(SHT_HIUSER, "section reserved for application programs - end"),
+  DESC(-1,"")
+};
+
 #define MAX_PATH 80
 
 enum ELFSTATE { NONE=0, OPEN=1<<0, MAPPED=1<<1, STRSFOUND=1<<2, SYMSFOUND=1<<3, DIRTY=1<<4 };
@@ -227,28 +247,65 @@ printIdent(union EIDENT *ident, FILE *fp) {
 	  ident->values.m2, ident->values.m3);
   printDesc(EICLASS, ident->values.class, "\tclass", fp);
   printDesc(EIDATA, ident->values.data, "\tdata", fp);
-  printDesc(EIVERSION, ident->values.version, "\tversion", fp);
+  printDesc(EIVERSION, ident->values.version, "\tver", fp);
   printDesc(EIOSABI, ident->values.osabi, "\tosabi", fp);
-  fprintf(fp, "\tabiversion: %d\n", ident->values.abiversion);
+  fprintf(fp, "\tabiver:%d\n", ident->values.abiversion);
 }
 
 typedef union {
   Elf64_Addr a64;
   Elf32_Addr a32;
-} ELFADDR_t;
+} ElfN_Addr;
 
-void ELFprintAddr(ELF *elf, char *name, ELFADDR_t addr, char *desc,
+typedef union {
+  Elf64_Off o64;
+  Elf32_Off o32;
+} ElfN_Off;
+
+void ELFprintAddr(ELF *elf, char *name, ElfN_Addr addr, char *desc,
 		  FILE *fp)
 {
   switch (ELFclass(elf)) {
   case ELFCLASS32:
-    fprintf(fp, "%s:0x%" PRIx32 " - %s\n", name, addr.a32, desc);
+    fprintf(fp, "%s:0x%" PRIx32 "%s\n", name, addr.a32, desc);
     break;
   case ELFCLASS64:
-    fprintf(fp, "%s:0x%" PRIx64 " - %s\n", name, addr.a64, desc);
+    fprintf(fp, "%s:0x%" PRIx64 "%s\n", name, addr.a64, desc);
     break;
   default: assert(0);
   }
+}
+
+void ELFprintOff(ELF *elf, char *name, ElfN_Off addr, char *desc,
+		 FILE *fp)
+{
+  switch (ELFclass(elf)) {
+  case ELFCLASS32:
+    fprintf(fp, "%s:%" PRId32 "%s\n", name, addr.o32, desc);
+    break;
+  case ELFCLASS64:
+    fprintf(fp, "%s:%" PRId64 "%s\n", name, addr.o64, desc);
+    break;
+  default: assert(0);
+  }
+}
+
+typedef union {
+  Elf64_Shdr s64;
+  Elf32_Shdr s32;
+} ElfN_Shdr;
+
+void ELFprintSections(ELF *elf, FILE *fp)
+{
+  Elf64_Ehdr *hdr = (void *)elf->addr;
+  ElfN_Shdr *shdrs = (void *)(elf->addr + hdr->e_shoff);
+  int n = hdr->e_shnum;
+
+  for (int i=0; i<n; i++) {
+    fprintf(stderr, "section[%d]:",i);
+    printDesc(SHTYPE, shdrs[i].s64.sh_type, "sh_type", fp);
+  }
+  
 }
 
 void ELFprintHdr(ELF *elf, FILE *fp)
@@ -258,8 +315,33 @@ void ELFprintHdr(ELF *elf, FILE *fp)
   printDesc(ETYPE, hdr->e_type, "e_type", fp);
   printDesc(EMACHINE, hdr->e_machine, "e_machine", fp);
   printDesc(EVERSION, hdr->e_version, "e_version", fp);
-  ELFprintAddr(elf, "e_entry:", (ELFADDR_t)hdr->e_entry,
-	    "virtual address of entry entry point", fp);
+  ELFprintAddr(elf, "e_entry", (ElfN_Addr)hdr->e_entry,
+	    "\t- virtual address of entry entry point", fp);
+  ELFprintOff(elf, "e_phoff", (ElfN_Off)hdr->e_phoff,
+	      "\t- program header table's file offset in bytes", fp);
+  ELFprintOff(elf, "e_shoff", (ElfN_Off)hdr->e_shoff,
+    "\t- section header table's file offset in bytes", fp);
+  fprintf(fp, "e_flags:0x%" PRIx32
+	  "\t- currently no processor-specific flags have been define\n",
+	  hdr->e_flags);
+  fprintf(fp, "e_ehsize:%" PRIu16
+	  "\t- ELF header's size in bytes\n", hdr->e_ehsize);
+  fprintf(fp, "e_phentsize:%" PRIu16
+	  "\t- size in bytes of one entry in the "
+	  "program header table\n", hdr->e_phentsize);
+  fprintf(fp, "e_phnum:%" PRIu16
+	  "\t- number ofentries in the program header table\n",
+	  hdr->e_phnum);
+  fprintf(fp, "e_shentsize:%" PRIu16
+	  "\t- size in bytes of one entry in the"
+	  " section header table \n", hdr->e_shentsize);
+  fprintf(fp, "e_shnum:%" PRIu16
+	  "\t- number of entries in the section header table\n",
+	  hdr->e_shnum);
+  fprintf(fp, "e_shstrndx:%" PRIu16
+	  "\t- section header table index of the entry\n\t\t  "
+	  "associated with the section name string table\n",
+	  hdr->e_shstrndx);
 }
 
 // used only during open after that these values
@@ -343,8 +425,8 @@ int openElf(ELF *elf, char *path, int openflgs, int persist)
 
   // FIXME: right now hardcoded to only support 64 bit little endian
   //        binaries 
-  assert(ELFclass(elf) == ELFCLASS64);
-  assert(ELFdataencoding(elf) == ELFDATA2LSB);
+  // assert(ELFclass(elf) == ELFCLASS64);
+  // assert(ELFdataencoding(elf) == ELFDATA2LSB);
   
   return 1;
 }
@@ -376,7 +458,8 @@ int main(int argc, char **argv)
   }
 
   if (verbose()) {
-    ELFprintHdr(&elf,stderr);
+    ELFprintHdr(&elf, stderr);
+    ELFprintSections(&elf, stderr);
   }
   
   findStrTbl(&elf);
