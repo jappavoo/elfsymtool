@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <fcntl.h>
+#include <inttypes.h>
 
 struct Args {
   char *elfpath;
@@ -73,81 +74,7 @@ processArgs(int argc, char **argv)
   return true;
 }
 
-#define MAX_PATH 80
-
-enum ELFSTATE { NONE=0, OPEN=1<<0, MAPPED=1<<1, STRSFOUND=1<<2, SYMSFOUND=1<<3, DIRTY=1<<4 };
-typedef struct {
-  char path[MAX_PATH];
-  struct stat finfo;
-  uint8_t *addr;
-  uint8_t *strtbl;
-  union {
-    uint8_t *addr;
-    Elf32_Sym *sym32;
-    Elf64_Sym *sym64;
-  } sym;
-  int fd;
-  int openflgs;
-  int mmapflgs;
-  int protflgs;
-  enum ELFSTATE state;
-} ELF;
-  
-
-int openElf(ELF *elf, char *path, int openflgs, int persist)
-{
-  struct stat statbuf;
-  int fd;
-  int mmapflgs, protflgs;
-  void *bytes;
-  enum ELFSTATE state = NONE;
-  int mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
-  assert(elf);
-  assert(path);
-
-  fd = open(path, openflgs, mode);
-  if (fd == -1) {
-    warn(__FUNCTION__);
-    return 0;
-  }
-  state |= OPEN;
-  
-  if (fstat(fd, &statbuf) == -1) {
-    warn(__FUNCTION__);
-    return 0;    
-  }
-
-  // If we are presisting the changes then we map shared
-  // otherwise we map private
-  mmapflgs =  (persist) ?  MAP_SHARED : MAP_PRIVATE; // flags
-  if (openflgs & O_RDONLY)  protflgs = PROT_READ;
-  else protflgs = PROT_READ | PROT_WRITE;
-  bytes = mmap(NULL, // addr
-	       statbuf.st_size, // length,
-	       protflgs, // prot
-	       mmapflgs,
-	       fd, // fd,
-	       0);  // offset
-  if (bytes == MAP_FAILED) {
-    warn(__FUNCTION__);
-    return 0;
-  }
-  state |= MAPPED;
-
-  
-  strncpy(elf->path, path, sizeof(elf->path));
-  elf->openflgs = openflgs;
-  elf->fd = fd;
-  memcpy(&(elf->finfo), &statbuf, sizeof(statbuf));
-  elf->mmapflgs = mmapflgs;
-  elf->protflgs = protflgs;
-  elf->addr = bytes;
-  elf->state = state;
-  
-  return 1;
-  
-}
-
+// elf decoding tables
 #define xstr(s) str(s)
 #define str(s) #s
 
@@ -157,6 +84,18 @@ struct Desc {
   char desc[80];
 };
 
+void 
+printDesc(struct Desc *dtbl, int v, char *name, FILE *fp)
+{
+  for (int i=0; dtbl[i].val != -1; i++) {
+    if (dtbl[i].val == v) {
+      fprintf(fp, "%s:%d - %s : %s\n", name,
+	      dtbl[i].val, dtbl[i].name, dtbl[i].desc);
+      return;
+    }
+  }
+  assert(0);
+}
 
 #define DESC(v, d) { \
     .val = v, \
@@ -223,19 +162,61 @@ union EIDENT {
   } values;
 };
       
-  
-void 
-printDesc(struct Desc *dtbl, int v, char *name, FILE *fp)
-{
-  for (int i=0; dtbl[i].val != -1; i++) {
-    if (dtbl[i].val == v) {
-      fprintf(fp, "%s : %d - %s : %s\n", name,
-	      dtbl[i].val, dtbl[i].name, dtbl[i].desc);
-      return;
-    }
-  }
-  assert(0);
-}
+struct Desc EMACHINE[] = {
+  DESC(EM_NONE, "An unknown machine"),
+  DESC(EM_M32, "AT&T WE 32100"),
+  DESC(EM_SPARC, "Sun Microsystems SPARC"),
+  DESC(EM_386, "Intel 80386"),
+  DESC(EM_68K, "Motorola 68000"),
+  DESC(EM_88K, "Motorola 88000"),
+  DESC(EM_860, "Intel 80860"),
+  DESC(EM_MIPS, "MIPS RS3000 (big-endian only)"),
+  DESC(EM_PARISC, "HP/PA"),
+  DESC(EM_SPARC32PLUS, "SPARC with enhanced instruction set"),
+  DESC(EM_PPC, "PowerPC"),
+  DESC(EM_PPC64, "PowerPC 64-bit"),
+  DESC(EM_S390, "IBM S/390"),
+  DESC(EM_ARM, "Advanced RISC Machines"),
+  DESC(EM_SH, "Renesas SuperH"),
+  DESC(EM_SPARCV9, "SPARC v9 64-bit"),
+  DESC(EM_IA_64, "Intel Itanium"),
+  DESC(EM_X86_64, "AMD x86-64"),
+  DESC(EM_VAX, "DEC Vax"),
+  DESC(-1,"")
+};
+
+struct Desc EVERSION[] = {
+  DESC(EV_NONE, "Invalid version"),
+  DESC(EV_CURRENT, "Current version"),
+  DESC(-1,"")
+};
+
+#define MAX_PATH 80
+
+enum ELFSTATE { NONE=0, OPEN=1<<0, MAPPED=1<<1, STRSFOUND=1<<2, SYMSFOUND=1<<3, DIRTY=1<<4 };
+typedef struct {
+  char path[MAX_PATH];
+  struct stat finfo;
+  uint8_t *addr;
+  uint8_t *strtbl;
+  union {
+    uint8_t *addr;
+    Elf32_Sym *sym32;
+    Elf64_Sym *sym64;
+  } sym;
+  int fd;
+  int openflgs;
+  int mmapflgs;
+  int protflgs;
+  enum ELFSTATE state;
+  int valid;
+  int class;
+  int dataencoding;
+} ELF;
+
+int ELFvalid(ELF *elf) { return elf->valid; }
+int ELFclass(ELF *elf) { return elf->class; }
+int ELFdataencoding(ELF *elf) { return elf->dataencoding; }
 
 void 
 printIdent(union EIDENT *ident, FILE *fp) {
@@ -251,13 +232,48 @@ printIdent(union EIDENT *ident, FILE *fp) {
   fprintf(fp, "\tabiversion: %d\n", ident->values.abiversion);
 }
 
-#if 0
-dumptype
-#endif
-    
-void printHdr(Elf64_Ehdr *hdr, FILE *fp)
+typedef union {
+  Elf64_Addr a64;
+  Elf32_Addr a32;
+} ELFADDR_t;
+
+void ELFprintAddr(ELF *elf, char *name, ELFADDR_t addr, char *desc,
+		  FILE *fp)
 {
+  switch (ELFclass(elf)) {
+  case ELFCLASS32:
+    fprintf(fp, "%s:0x%" PRIx32 " - %s\n", name, addr.a32, desc);
+    break;
+  case ELFCLASS64:
+    fprintf(fp, "%s:0x%" PRIx64 " - %s\n", name, addr.a64, desc);
+    break;
+  default: assert(0);
+  }
+}
+
+void ELFprintHdr(ELF *elf, FILE *fp)
+{
+  Elf64_Ehdr *hdr = (void *)elf->addr;
   printIdent((union EIDENT *)&(hdr->e_ident), fp);
+  printDesc(ETYPE, hdr->e_type, "e_type", fp);
+  printDesc(EMACHINE, hdr->e_machine, "e_machine", fp);
+  printDesc(EVERSION, hdr->e_version, "e_version", fp);
+  ELFprintAddr(elf, "e_entry:", (ELFADDR_t)hdr->e_entry,
+	    "virtual address of entry entry point", fp);
+}
+
+// used only during open after that these values
+// are cached in elf object so use methods to get them
+int getELFClass(ELF *elf) {
+  Elf64_Ehdr *hdr = (void *)(elf->addr);
+  union EIDENT *ident = (void *)&(hdr->e_ident);
+  return ident->values.class;
+}
+
+int getELFDataEncoding(ELF *elf) {
+  Elf64_Ehdr *hdr = (void *)(elf->addr);
+  union EIDENT *ident = (void *)&(hdr->e_ident);
+  return ident->values.data;
 }
 
 bool validElfIdent(ELF *elf) {
@@ -268,6 +284,71 @@ bool validElfIdent(ELF *elf) {
 	  ident->values.m2 == ELFMAG2 &&
 	  ident->values.m3 == ELFMAG3 );
 }
+
+int openElf(ELF *elf, char *path, int openflgs, int persist)
+{
+  struct stat statbuf;
+  int fd;
+  int mmapflgs, protflgs;
+  void *bytes;
+  enum ELFSTATE state = NONE;
+  int mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
+  assert(elf);
+  assert(path);
+
+  fd = open(path, openflgs, mode);
+  if (fd == -1) {
+    warn(__FUNCTION__);
+    return 0;
+  }
+  state |= OPEN;
+  
+  if (fstat(fd, &statbuf) == -1) {
+    warn(__FUNCTION__);
+    return 0;    
+  }
+
+  // If we are presisting the changes then we map shared
+  // otherwise we map private
+  mmapflgs =  (persist) ?  MAP_SHARED : MAP_PRIVATE; // flags
+  if (openflgs & O_RDONLY)  protflgs = PROT_READ;
+  else protflgs = PROT_READ | PROT_WRITE;
+  bytes = mmap(NULL, // addr
+	       statbuf.st_size, // length,
+	       protflgs, // prot
+	       mmapflgs,
+	       fd, // fd,
+	       0);  // offset
+  if (bytes == MAP_FAILED) {
+    warn(__FUNCTION__);
+    return 0;
+  }
+  state |= MAPPED;
+  
+  strncpy(elf->path, path, sizeof(elf->path));
+  elf->openflgs = openflgs;
+  elf->fd = fd;
+  memcpy(&(elf->finfo), &statbuf, sizeof(statbuf));
+  elf->mmapflgs = mmapflgs;
+  elf->protflgs = protflgs;
+  elf->addr = bytes;
+  elf->state = state;
+  elf->valid = validElfIdent(elf);
+  if (!ELFvalid(elf)) {
+    fprintf(stderr, "ERROR: does not seem to be an elf file bad ident\n");
+    return 0;
+  }
+  elf->class = getELFClass(elf);
+  elf->dataencoding = getELFDataEncoding(elf);
+
+  // FIXME: right now hardcoded to only support 64 bit little endian
+  //        binaries 
+  assert(ELFclass(elf) == ELFCLASS64);
+  assert(ELFdataencoding(elf) == ELFDATA2LSB);
+  
+  return 1;
+}
+
 int findStrTbl(ELF *elf)
 {
   assert(elf);
@@ -295,13 +376,7 @@ int main(int argc, char **argv)
   }
 
   if (verbose()) {
-    Elf64_Ehdr *hdr = (void *)elf.addr;
-    printHdr(hdr,stderr);
-  }
-
-  if (!validElfIdent(&elf)) {
-    fprintf(stderr, "ERROR: does not seem to be an elf file bad ident\n");
-    return -1;
+    ELFprintHdr(&elf,stderr);
   }
   
   findStrTbl(&elf);
