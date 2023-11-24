@@ -6,11 +6,17 @@ targets=elfsymtool
 %.o: %.c
 	${CC} ${CFLAGS} -c $< -o $@
 
-elfsymtool: elfsymtool.o
+
+all: ${targets}
+
+ELF.o: ELF.c ELF.h
+
+elfsymtool: ELF.o elfsymtool.o 
 	${CC} ${LDFLAGS} -o $@ $^
 
 
-all: ${targets}
+clean:
+	${RM} -rf $(wildcard ${targets} *.o)
 
 
 
