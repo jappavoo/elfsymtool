@@ -76,46 +76,6 @@ processArgs(int argc, char **argv)
   return true;
 }
 
-
-#if 0
-void ELFprintSections(ELF *elf, FILE *fp)
-{
-  ElfN_Ehdr *hdr = (void *)elf->addr;
-  ElfN_Shdr *shdr = (void *)(elf->addr + NF(elf,hdr,e_shoff));
-  int n = NF(elf,hdr,e_shnum);
-
-  for (int i=0; i<n; i++) {
-    fprintf(stderr, "section[%d]:",i);
-    printDesc(SHTYPE, NF(elf,shdrs[i],sh_type), "sh_type", fp);
-    shdr = NPTRADD(elf,shdr,1)
-  }
-  
-}
-
-char *
-ELFString(ELF *elf, int i) {
-  return "";
-}
-
-void ELFprintSym(ELF *elf, ElfN_Sym *sym, FILE *fp)
-{
-  switch (ELFclass(elf)) {
-  case ELFCLASS32:
-    fprintf(fp, "st_name:%" PRId32 "(%s)", sym->s32.st_name,
-	    ELFString(elf, sym->s32.st_name));
-    ELFprintAddr(elf, "st_value", (ElfN_Addr)sym->s32.st_value, "", fp);
-    break;
-  case ELFCLASS64:
-    fprintf(fp, "st_name:%" PRId32 "(%s)", sym->s64.st_name,
-	    ELFString(elf, sym->s64.st_name));
-    ELFprintAddr(elf, "st_value", (ElfN_Addr)sym->s64.st_value, "", fp);
-    break;
-  default: assert(0);
-  }
-}
-#endif
-
-
 int findStrTbl(ELF *elf)
 {
   assert(elf);
@@ -144,7 +104,7 @@ int main(int argc, char **argv)
 
   if (verbose()) {
     ELFprintHdr(&elf, stderr);
-    //    ELFprintSections(&elf, stderr);
+    ELFprintSections(&elf, stderr);
   }
   
   findStrTbl(&elf);

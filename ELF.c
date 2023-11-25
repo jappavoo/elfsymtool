@@ -237,6 +237,8 @@ fprintIdent(FILE *fp, union EIDENT *ident) {
 void ELFprintHdr(ELF *elf, FILE *fp)
 {
   ElfN_Ehdr *hdr = (void *)elf->addr;
+
+  fprintf(fp, "Header:\n");
   fprintIdent(fp, (union EIDENT *)NA(hdr,e_ident));
   printDesc(ETYPE, NPGET(hdr,e_type), "e_type", fp);
   printDesc(EMACHINE, NPGET(hdr,e_machine), "e_machine", fp);
@@ -276,3 +278,42 @@ void ELFprintHdr(ELF *elf, FILE *fp)
 }
 
 
+char *
+ELFString(ELF *elf, int i) {
+  return "";
+}
+
+void ELFprintSym(ELF *elf, ElfN_Sym *sym, FILE *fp)
+{
+#if 0
+  switch (ELFclass(elf)) {
+  case ELFCLASS32:
+    fprintf(fp, "st_name:%" PRId32 "(%s)", sym->s32.st_name,
+	    ELFString(elf, sym->s32.st_name));
+    ELFprintAddr(elf, "st_value", (ElfN_Addr)sym->s32.st_value, "", fp);
+    break;
+  case ELFCLASS64:
+    fprintf(fp, "st_name:%" PRId32 "(%s)", sym->s64.st_name,
+	    ELFString(elf, sym->s64.st_name));
+    ELFprintAddr(elf, "st_value", (ElfN_Addr)sym->s64.st_value, "", fp);
+    break;
+  default: assert(0);
+  }
+#endif
+}
+
+void ELFprintSections(ELF *elf, FILE *fp)
+{
+  ElfN_Ehdr *hdr = (void *)elf->addr;
+  ElfN_Shdr *shdrs = (void *)(elf->addr + NPGET(hdr,e_shoff));
+  int n = NPGET(hdr,e_shnum);
+
+  fprintf(fp, "Section Header Table:\n");
+  for (int i=0; i<n; i++) {
+    ElfN_Shdr *sh = NI(shdrs,i);
+    fprintf(stderr, "section[%d]:",i);
+    printDesc(SHTYPE,
+	      NPGET(sh,sh_type), "sh_type", fp);
+  }
+  
+}

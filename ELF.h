@@ -138,7 +138,7 @@ static void fprintElfN_Off(FILE *fp, ElfN_Off off) {
   else fprintf(fp, "0x%" PRId32, off.o32);
 }
 
-
-void  ELFprintHdr(ELF *elf, FILE *fp);
+void ELFprintHdr(ELF *elf, FILE *fp);
+void ELFprintSections(ELF *elf, FILE *fp);
 
 #endif
