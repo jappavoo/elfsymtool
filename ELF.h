@@ -1,16 +1,8 @@
 #ifndef __ELF_H__
 #define __ELF_H__
 
-
-// elf decoding tables
-#define xstr(s) str(s)
-#define str(s) #s
-
-struct Desc {
-  int val;
-  char name[40];
-  char desc[256];
-};
+#include "desc.h"
+#include "elfdescs.h"
 
 static void 
 printDesc(struct Desc *dtbl, int v, char *name, FILE *fp)
@@ -24,18 +16,6 @@ printDesc(struct Desc *dtbl, int v, char *name, FILE *fp)
   }
   assert(0);
 }
-
-#define DESC(v, d) {				\
-      .val = v,		          		\
-      .name = #v,				\
-      .desc = d					\
-      }
-
-extern struct Desc ETYPE[];
-extern struct Desc EICLASS[];
-extern struct Desc EIDATA[];
-extern struct Desc EIVERSION[];
-extern struct Desc EIOSABI[];
 
 union EIDENT {
   uint8_t raw[EI_NIDENT];

@@ -19,119 +19,6 @@
 
 int ElfN = ELFCLASSNONE;
 
-struct Desc ETYPE[] = {
-  DESC(ET_NONE, "An unknown type"),
-  DESC(ET_REL, "A relocatable file"),
-  DESC(ET_EXEC, "An executable file"),
-  DESC(ET_DYN, "A shared object"),
-  DESC(ET_CORE, "A core file"),
-  DESC(-1, "")
-};
-
-struct Desc EICLASS[] = {
-  DESC(ELFCLASSNONE, "This class is invalid"),
-  DESC(ELFCLASS32, "32-bit architecture"),
-  DESC(ELFCLASS64, "64-bit architecture"),
-  DESC(-1, "")
-};
-
-struct Desc EIDATA[] = {
-  DESC(ELFDATANONE, "Unknown data format."),
-  DESC(ELFDATA2LSB, "Two's complement, little-endian."),
-  DESC(ELFDATA2MSB, "Two's complement, big-endian."),
-  DESC(-1,"")
-};
-
-struct Desc EIVERSION[] = {
-  DESC(EV_NONE, "Invalid version."),
-  DESC(EV_CURRENT, "Current version."),
-  DESC(-1,"")
-};
-
-struct Desc EIOSABI[] = {
-  DESC(ELFOSABI_SYSV, "UNIX System V ABI"),
-  DESC(ELFOSABI_HPUX, "HP-UX ABI"),
-  DESC(ELFOSABI_NETBSD, "NetBSD ABI"),
-  DESC(ELFOSABI_LINUX, "Linux ABI"),
-  DESC(ELFOSABI_SOLARIS, "Solaris ABI"),
-  DESC(ELFOSABI_IRIX, "IRIX ABI"),
-  DESC(ELFOSABI_FREEBSD, "FreeBSD ABI"),
-  DESC(ELFOSABI_TRU64, "TRU64 UNIX ABI"),
-  DESC(ELFOSABI_ARM, "ARM architecture ABI"),
-  DESC(ELFOSABI_STANDALONE, "Stand-alone  (embedded)"),
-  DESC(-1,"")
-};
-
-      
-struct Desc EMACHINE[] = {
-  DESC(EM_NONE, "An unknown machine"),
-  DESC(EM_M32, "AT&T WE 32100"),
-  DESC(EM_SPARC, "Sun Microsystems SPARC"),
-  DESC(EM_386, "Intel 80386"),
-  DESC(EM_68K, "Motorola 68000"),
-  DESC(EM_88K, "Motorola 88000"),
-  DESC(EM_860, "Intel 80860"),
-  DESC(EM_MIPS, "MIPS RS3000 (big-endian only)"),
-  DESC(EM_PARISC, "HP/PA"),
-  DESC(EM_SPARC32PLUS, "SPARC with enhanced instruction set"),
-  DESC(EM_PPC, "PowerPC"),
-  DESC(EM_PPC64, "PowerPC 64-bit"),
-  DESC(EM_S390, "IBM S/390"),
-  DESC(EM_ARM, "Advanced RISC Machines"),
-  DESC(EM_SH, "Renesas SuperH"),
-  DESC(EM_SPARCV9, "SPARC v9 64-bit"),
-  DESC(EM_IA_64, "Intel Itanium"),
-  DESC(EM_X86_64, "AMD x86-64"),
-  DESC(EM_VAX, "DEC Vax"),
-  DESC(-1,"")
-};
-
-struct Desc EVERSION[] = {
-  DESC(EV_NONE, "Invalid version"),
-  DESC(EV_CURRENT, "Current version"),
-  DESC(-1,"")
-};
-
-struct Desc SHTYPE[] = {
-  DESC(SHT_NULL, "Section header table entry unused"),
-  DESC(SHT_PROGBITS, "Program data"),
-  DESC(SHT_SYMTAB, "Symbol table"),
-  DESC(SHT_STRTAB, "String table"),
-  DESC(SHT_RELA, "Relocation entries with addends"),
-  DESC(SHT_HASH, "Symbol hash table"),
-  DESC(SHT_DYNAMIC, "Dynamic linking information"),
-  DESC(SHT_NOTE, "Notes"),
-  DESC(SHT_NOBITS, "Program space with no data (bss)"),
-  DESC(SHT_REL, "Relocation entries, no addends"),
-  DESC(SHT_SHLIB, "Reserved"),
-  DESC(SHT_DYNSYM, "Dynamic linker symbol table"),
-  DESC(SHT_INIT_ARRAY, "Array of constructors"),
-  DESC(SHT_FINI_ARRAY, "Array of destructors"),
-  DESC(SHT_PREINIT_ARRAY, "Array of pre-constructors"),
-  DESC(SHT_GROUP, "Section group"),
-  DESC(SHT_SYMTAB_SHNDX, "Extended section indices"),
-  DESC(SHT_NUM, "Number of defined types."),
-  DESC(SHT_LOOS, "Start OS-specific."),
-  DESC(SHT_GNU_ATTRIBUTES, "Object attributes."),
-  DESC(SHT_GNU_HASH, "GNU-style hash table."),
-  DESC(SHT_GNU_LIBLIST, "Prelink library list"),
-  DESC(SHT_CHECKSUM, "Checksum for DSO content."),
-  DESC(SHT_LOSUNW, "Sun-specific low bound."),
-  DESC(SHT_SUNW_move, ""),
-  DESC(SHT_SUNW_COMDAT, ""),
-  DESC(SHT_SUNW_syminfo, ""),
-  DESC(SHT_GNU_verdef, "Version definition section."),
-  DESC(SHT_GNU_verneed, "Version needs section."),
-  DESC(SHT_GNU_versym, "Version symbol table."),
-  DESC(SHT_HISUNW, "Sun-specific high bound."),
-  DESC(SHT_HIOS, "End OS-specific type"),
-  DESC(SHT_LOPROC, "Start of processor-specific"),
-  DESC(SHT_HIPROC, "End of processor-specific"),
-  DESC(SHT_LOUSER, "Start of application-specific"),
-  DESC(SHT_HIUSER, "End of application-specific"),
-  DESC(-1,"")
-};
-
 // used only during open after that these values
 // are cached in elf object so use methods to get them
 static int getELFClass(ELF *elf) {
@@ -229,7 +116,7 @@ fprintIdent(FILE *fp, union EIDENT *ident) {
 	  ident->values.m2, ident->values.m3);
   printDesc(EICLASS, ident->values.class, "\tclass", fp);
   printDesc(EIDATA, ident->values.data, "\tdata", fp);
-  printDesc(EIVERSION, ident->values.version, "\tver", fp);
+  printDesc(EVERSION, ident->values.version, "\tver", fp);
   printDesc(EIOSABI, ident->values.osabi, "\tosabi", fp);
   fprintf(fp, "\tabiver:%d\n", ident->values.abiversion);
 }
@@ -314,6 +201,8 @@ void ELFprintSections(ELF *elf, FILE *fp)
     fprintf(stderr, "section[%d]:",i);
     printDesc(SHTYPE,
 	      NPGET(sh,sh_type), "sh_type", fp);
+    
   }
   
 }
+

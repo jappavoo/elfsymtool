@@ -1,5 +1,21 @@
 #!/bin/bash
-while read n desc; do
+
+ELFHDR=${ELFHDR:-elf.h}
+fname=$1
+sname=${fname%%.*}
+prefix=$2
+
+cat >$fname  <<EOF
+#include <$ELFHDR>
+#include "desc.h"
+
+struct Desc $sname[] = {
+EOF
+grep  "#define *$prefix" /usr/include/$ELFHDR | while read def n v desc; do
+  desc=$(echo "$desc" | tr \" \')  
   echo "  DESC($n, \"$desc\")",
-done
-echo "  DESC(-1,\"\")"
+done >> $fname
+echo "  DESC(-1,\"\")" >> $fname
+cat >> $fname <<EOF
+};
+EOF
