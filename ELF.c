@@ -213,11 +213,37 @@ ELFnextSymTbl(ELF *elf, int *idx, ElfN_Shdr **stshdr)
   }
 }
 
-  
+void fprintSTINFO(FILE *fp, unsigned char info)
+{
+  int type = (ElfN == ELFCLASS64) ?
+    ELF64_ST_TYPE(info):ELF32_ST_TYPE(info);
+  int bind = (ElfN == ELFCLASS64) ?
+    ELF64_ST_BIND(info):ELF32_ST_BIND(info);
+
+  fprintf(fp, "\tst_info:0x%02hhx\n", info);
+  printDesc(STTYPE, type, "\t\ttype", fp);
+  printDesc(STBIND, bind, "\t\tbndng", fp);
+}
+void fprintSTOTHER(FILE *fp, unsigned char other)
+{
+  int vis = (ElfN == ELFCLASS64) ?
+    ELF64_ST_VISIBILITY(other):ELF32_ST_VISIBILITY(other);
+
+  fprintf(fp, "\tst_other:0x%02hhx\n", other);
+  printDesc(STVISIBILITY, vis, "\t\tvis", fp);
+}
+
 void ELFprintSym(ELF *elf, ElfN_Sym *sym, int shstrndx, FILE *fp)
 {
   int ndx = NPGET(sym, st_name);
-  fprintf(stderr, "\tname:%s (%d,%" PRId32 ")\n", ELFString(elf, shstrndx, ndx), shstrndx, ndx);
+  fprintf(fp, "\tst_name:%s (%d,%" PRId32 ")\n",
+	  ELFString(elf, shstrndx, ndx), shstrndx, ndx);
+  fprintf(fp, "\tst_value:");
+  fprintElfN_Addr(fp, (ElfN_Addr)(NPGET(sym,st_value)));
+  fprintf(fp, "\n\tst_size:%ld\n", NPGET(sym,st_size));
+  fprintSTINFO(fp, NPGET(sym, st_info));
+  fprintSTOTHER(fp, NPGET(sym, st_other));
+  fprintf(fp, "\tst_shndx:%d\n", NPGET(sym,st_shndx));
 }
 
 void ELFprintSymTbl(ELF *elf, ElfN_Shdr *stshdr,  FILE *fp)
@@ -232,6 +258,7 @@ void ELFprintSymTbl(ELF *elf, ElfN_Shdr *stshdr,  FILE *fp)
   for (i=0,e=(elf->addr + NPGET(stshdr, sh_offset));
        i<n;
        i++, e+=esize) {
+    fprintf(fp, "%d:\n", i);
     ELFprintSym(elf, e, shstrndx, fp);
   }
   
@@ -256,7 +283,7 @@ void ELFprintShdr(ELF *elf, ElfN_Shdr *sh, FILE *fp)
   int shstrndx = NPGET(hdr, e_shstrndx);
   int ndx = NPGET(sh, sh_name);
   
-  fprintf(stderr, "\tname:%s (%d,%" PRId32 ")\n", ELFString(elf, shstrndx, ndx), shstrndx, ndx);
+  fprintf(fp, "\tname:%s (%d,%" PRId32 ")\n", ELFString(elf, shstrndx, ndx), shstrndx, ndx);
   printDesc(SHTYPE, NPGET(sh,sh_type), "\tsh_type", fp);
   fprintf(fp, "\tsh_flags:0x%" PRIx64 "\t- (", NPGET(sh,sh_flags));
   fprintSHFLAGS(fp, NPGET(sh,sh_flags));
@@ -292,7 +319,7 @@ void ELFprintSections(ELF *elf, FILE *fp)
        i<n;
        i++, e+=esize) {
     //    ElfN_Shdr *sh = NI(shdrs,i);
-    fprintf(stderr, "section[%d]:\n",i);
+    fprintf(fp, "section[%d]:\n",i);
     ELFprintShdr(elf,e,fp);
   }  
 }

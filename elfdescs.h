@@ -9,5 +9,8 @@ extern struct Desc EIOSABI[];
 extern struct Desc EMACHINE[];
 extern struct Desc SHTYPE[];
 extern struct Desc SHFLAGS[];
+extern struct Desc STTYPE[];
+extern struct Desc STBIND[];
+extern struct Desc STVISIBILITY[];
 
 #endif
