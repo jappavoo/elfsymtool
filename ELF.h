@@ -78,11 +78,15 @@ static void setElfN(int class) {
 #define NPSET(p,f,v) ((ElfN == ELFCLASS64) ? p->s64.f = v : p->s32.f = v)
 #define NPGET(p,f) ((ElfN == ELFCLASS64) ? p->s64.f : p->s32.f)
 
+#if 0
+// So far I have found that table entry sizes are explicitly stated in bytes
+// so we don't actually need this ... so far
 // the following allows us to work with arrays of ElfN unions as if they
 // were an array of the specific ElfN class struct
 // results in a pointer to the ith element from base address a
 #define  NI(a,i) ((ElfN == ELFCLASS64) ? ((void *)a) + (i*sizeof(a[0].s64)) \
 		  : ((void *)a) + (i*sizeof(a[0].s32)));
+#endif
 
 #define MAX_PATH 80
 
@@ -120,5 +124,8 @@ static void fprintElfN_Off(FILE *fp, ElfN_Off off) {
 
 void ELFprintHdr(ELF *elf, FILE *fp);
 void ELFprintSections(ELF *elf, FILE *fp);
-
+void ELFprintShdr(ELF *elf, ElfN_Shdr *sh, FILE *fp);
+void ELFnextSymTbl(ELF *elf, int *idx, ElfN_Shdr **stshdr);
+void ELFprintSymTbl(ELF *elf, ElfN_Shdr *stshdr, FILE *fp);
+void ELFprintSym(ELF *elf, ElfN_Sym *sym, int shstrndx, FILE *fp);
 #endif

@@ -164,45 +164,136 @@ void ELFprintHdr(ELF *elf, FILE *fp)
 	  NPGET(hdr,e_shstrndx));
 }
 
-
 char *
-ELFString(ELF *elf, int i) {
-  return "";
+ELFString(ELF *elf, int shndx, int strndx)
+{
+  ElfN_Ehdr *hdr = (void *)elf->addr;
+  int shdrsize = NPGET(hdr, e_shentsize);
+  void *shdrs = (void *)(elf->addr + NPGET(hdr,e_shoff));
+  int n = NPGET(hdr,e_shnum);
+
+  assert(shndx>=0 && shndx<n);
+  
+  ElfN_Shdr *sh = shdrs + (shdrsize * shndx); 
+  int shtype = NPGET(sh,sh_type);
+
+  assert(shtype == SHT_STRTAB);
+
+  char *strings = (void *)elf->addr + NPGET(sh, sh_offset);
+  int strtbllen = NPGET(sh, sh_size);
+
+  assert(strndx>=0 && strndx<strtbllen);
+  
+  return strings + strndx; 
 }
 
-void ELFprintSym(ELF *elf, ElfN_Sym *sym, FILE *fp)
+void
+ELFnextSymTbl(ELF *elf, int *idx, ElfN_Shdr **stshdr)
 {
-#if 0
-  switch (ELFclass(elf)) {
-  case ELFCLASS32:
-    fprintf(fp, "st_name:%" PRId32 "(%s)", sym->s32.st_name,
-	    ELFString(elf, sym->s32.st_name));
-    ELFprintAddr(elf, "st_value", (ElfN_Addr)sym->s32.st_value, "", fp);
-    break;
-  case ELFCLASS64:
-    fprintf(fp, "st_name:%" PRId32 "(%s)", sym->s64.st_name,
-	    ELFString(elf, sym->s64.st_name));
-    ELFprintAddr(elf, "st_value", (ElfN_Addr)sym->s64.st_value, "", fp);
-    break;
-  default: assert(0);
+  ElfN_Ehdr *hdr = (void *)elf->addr;
+  int n = NPGET(hdr,e_shnum);
+  int esize = NPGET(hdr, e_shentsize);
+  void *e;
+  int i;
+
+  *stshdr = NULL;
+  
+  if (*idx >=0 && *idx < n) {
+    for (i=*idx, e=((elf->addr + NPGET(hdr,e_shoff))+i*esize) ;
+	 i<n;
+	 i++, e+=esize) {
+      ElfN_Shdr *sh = e;
+      int type = NPGET(sh,sh_type);
+      if (type == SHT_SYMTAB || type == SHT_DYNSYM) {
+	*stshdr = sh;
+	*idx = i;
+	return;
+      }
+    }
   }
-#endif
+}
+
+  
+void ELFprintSym(ELF *elf, ElfN_Sym *sym, int shstrndx, FILE *fp)
+{
+  int ndx = NPGET(sym, st_name);
+  fprintf(stderr, "\tname:%s (%d,%" PRId32 ")\n", ELFString(elf, shstrndx, ndx), shstrndx, ndx);
+}
+
+void ELFprintSymTbl(ELF *elf, ElfN_Shdr *stshdr,  FILE *fp)
+{
+  assert(elf && stshdr && fp);
+  int esize = NPGET(stshdr, sh_entsize);
+  int n = NPGET(stshdr, sh_size)/esize;
+  int shstrndx = NPGET(stshdr, sh_link);
+  void *e;
+  int i;
+  
+  for (i=0,e=(elf->addr + NPGET(stshdr, sh_offset));
+       i<n;
+       i++, e+=esize) {
+    ELFprintSym(elf, e, shstrndx, fp);
+  }
+  
+}
+
+void fprintSHFLAGS(FILE *fp, int sh_flags) {
+  int i=0;
+  int cnt=0;
+  while (SHFLAGS[i].val != -1) {
+    if (sh_flags & SHFLAGS[i].val) {
+      if (cnt) fprintf(fp, "|");
+      fprintf(fp,"%s", SHFLAGS[i].name);
+      cnt++;
+    }
+    i++;
+  }
+}
+
+void ELFprintShdr(ELF *elf, ElfN_Shdr *sh, FILE *fp)
+{
+  ElfN_Ehdr *hdr = (void *)elf->addr;  
+  int shstrndx = NPGET(hdr, e_shstrndx);
+  int ndx = NPGET(sh, sh_name);
+  
+  fprintf(stderr, "\tname:%s (%d,%" PRId32 ")\n", ELFString(elf, shstrndx, ndx), shstrndx, ndx);
+  printDesc(SHTYPE, NPGET(sh,sh_type), "\tsh_type", fp);
+  fprintf(fp, "\tsh_flags:0x%" PRIx64 "\t- (", NPGET(sh,sh_flags));
+  fprintSHFLAGS(fp, NPGET(sh,sh_flags));
+  fprintf(fp, ")\n");
+  fprintf(fp, "\tsh_addr:");
+  fprintElfN_Addr(fp, (ElfN_Addr)(NPGET(sh,sh_addr)));
+  fprintf(fp, "\t- section virtual address at execution\n");
+  fprintf(fp, "\tsh_offset:");
+  fprintElfN_Off(fp, (ElfN_Off)(NPGET(sh,sh_offset)));
+  fprintf(fp, "\t- section file offset\n");
+  fprintf(fp, "\tsh_size:%" PRId64, NPGET(sh,sh_size));
+  fprintf(fp, "\t- section size in bytes\n");
+  fprintf(fp, "\tsh_link:%d", NPGET(sh,sh_link));
+  fprintf(fp, "\t- link to another section\n");
+  fprintf(fp, "\tsh_info:%d", NPGET(sh,sh_info));
+  fprintf(fp, "\t- additional section information\n");
+  fprintf(fp, "\tsh_addralign:%ld", NPGET(sh,sh_addralign));
+  fprintf(fp, "\t- section alignment\n");
+  fprintf(fp, "\tsh_entsize:%ld", NPGET(sh, sh_entsize));
+  fprintf(fp, "\t- entry size if section holds table\n");
 }
 
 void ELFprintSections(ELF *elf, FILE *fp)
 {
   ElfN_Ehdr *hdr = (void *)elf->addr;
-  ElfN_Shdr *shdrs = (void *)(elf->addr + NPGET(hdr,e_shoff));
   int n = NPGET(hdr,e_shnum);
-
-  fprintf(fp, "Section Header Table:\n");
-  for (int i=0; i<n; i++) {
-    ElfN_Shdr *sh = NI(shdrs,i);
-    fprintf(stderr, "section[%d]:",i);
-    printDesc(SHTYPE,
-	      NPGET(sh,sh_type), "sh_type", fp);
-    
-  }
+  int esize = NPGET(hdr, e_shentsize);
+  void *e;
+  int i;
   
+  fprintf(fp, "Section Header Table:\n");
+  for (i=0,e=(elf->addr + NPGET(hdr,e_shoff));
+       i<n;
+       i++, e+=esize) {
+    //    ElfN_Shdr *sh = NI(shdrs,i);
+    fprintf(stderr, "section[%d]:\n",i);
+    ELFprintShdr(elf,e,fp);
+  }  
 }
 

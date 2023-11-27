@@ -1,3 +1,11 @@
 *~
 *.o
 elfsymtool
+EICLASS.c
+EIDATA.c
+EIOSABI.c
+EMACHINE.c
+ETYPE.c
+EVERSION.c
+SHFLAGS.c
+SHTYPE.c

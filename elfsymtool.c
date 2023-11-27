@@ -76,16 +76,26 @@ processArgs(int argc, char **argv)
   return true;
 }
 
-int findStrTbl(ELF *elf)
+
+int processSymTbls(ELF *elf)
 {
+  ElfN_Shdr *stshdr;
+  int idx;
   assert(elf);
+
+  if (verbose()) fprintf(stderr, "Symbol Tables:\n");
+  for (idx=0, ELFnextSymTbl(elf, &idx, &stshdr);
+       stshdr != NULL;
+       idx++, ELFnextSymTbl(elf, &idx, &stshdr))  {
+    if (verbose()) {
+      fprintf(stderr, "Found Sym Section: %d\n", idx);
+      ELFprintShdr(elf, stshdr, stderr);
+    }
+    ELFprintSymTbl(elf, stshdr, stderr);
+  }
   return 1;
 }
 
-int findSymTbl(ELF *elf)
-{
-  return 1;
-}
 
 int main(int argc, char **argv)
 {
@@ -107,8 +117,7 @@ int main(int argc, char **argv)
     ELFprintSections(&elf, stderr);
   }
   
-  findStrTbl(&elf);
-  findSymTbl(&elf);
+  processSymTbls(&elf);
   
   return 0;
 }

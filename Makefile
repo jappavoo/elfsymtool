@@ -3,7 +3,7 @@ O=0
 CFLAGS=-O${O} -g
 targets=elfsymtool
 ELFHDR=/usr/include/elf.h
-DESCS_SRC=EMACHINE.c EVERSION.c ETYPE.c EICLASS.c EIDATA.c EIOSABI.c SHTYPE.c
+DESCS_SRC=EMACHINE.c EVERSION.c ETYPE.c EICLASS.c EIDATA.c EIOSABI.c SHTYPE.c SHFLAGS.c
 DESCS_OBJECTS=${DESCS_SRC:.c=.o}
 
 %.o: %.c
@@ -31,6 +31,9 @@ EIOSABI.c: ${ELFHDR}
 
 SHTYPE.c: ${ELFHDR}
 	./mkdesc $@ SHT_
+
+SHFLAGS.c: ${ELFHDR}
+	./mkdesc $@ SHF_
 
 ELF.o: ELF.c ELF.h
 

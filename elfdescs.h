@@ -8,5 +8,6 @@ extern struct Desc EVERSION[];
 extern struct Desc EIOSABI[];
 extern struct Desc EMACHINE[];
 extern struct Desc SHTYPE[];
+extern struct Desc SHFLAGS[];
 
 #endif
